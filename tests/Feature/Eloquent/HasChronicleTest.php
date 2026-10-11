@@ -198,9 +198,10 @@ it('redacts an updated entry when chronicleRedact is defined as an array on the 
 
     $entry = Entry::first();
 
-    // Entry is recorded (something changed), but diff is empty/null.
+    // The change is recorded, but neither value reaches the ledger.
     expect(Entry::count())->toBe(1)
         ->and($entry->action)->toBe('fake_chronicle_model.updated')
+        ->and($entry->diff['password']['old'])->toBe('[redacted]')
         ->and($entry->diff['password']['new'])->toBe('[redacted]');
 });
 
@@ -225,11 +226,107 @@ it('redacts an updated entry when chronicleRedact is defined as an overridden me
 
     $entry = Entry::first();
 
-    // Entry is recorded (something changed), but diff is empty/null.
+    // The change is recorded, but neither value reaches the ledger.
     expect(Entry::count())->toBe(1)
         ->and($entry->action)->toBe('fake_chronicle_model.updated')
+        ->and($entry->diff['password']['old'])->toBe('[redacted]')
         ->and($entry->diff['password']['new'])->toBe('[redacted]');
 });
+
+it('excludes chronicleIgnore fields when the property is declared on a subclass of a model using the trait', function () {
+    $model = new class extends FakeChronicleModel
+    {
+        protected array $chronicleIgnore = ['password'];
+
+        protected function chronicleActionPrefix(): string
+        {
+            return 'fake_chronicle_model';
+        }
+    };
+    $model->setTable('fake_chronicle_models');
+    $model->fill(['name' => 'Alice', 'password' => 'secret'])->save();
+    Entry::query()->delete();
+
+    $model->update(['name' => 'Bob', 'password' => 'newsecret']);
+
+    $entry = Entry::first();
+
+    expect($entry->diff)->toHaveKey('name')
+        ->and($entry->diff)->not->toHaveKey('password');
+});
+
+it('redacts chronicleRedact fields when the property is declared on a subclass of a model using the trait', function () {
+    $model = new class extends FakeChronicleModel
+    {
+        protected array $chronicleRedact = ['password'];
+
+        protected function chronicleActionPrefix(): string
+        {
+            return 'fake_chronicle_model';
+        }
+    };
+    $model->setTable('fake_chronicle_models');
+    $model->fill(['name' => 'Alice', 'password' => 'secret'])->save();
+    Entry::query()->delete();
+
+    $model->update(['password' => 'newsecret']);
+
+    $entry = Entry::first();
+
+    expect($entry->diff['password']['old'])->toBe('[redacted]')
+        ->and($entry->diff['password']['new'])->toBe('[redacted]');
+});
+
+it('prefers an overridden method over a declared property', function () {
+    $model = new class extends FakeModel
+    {
+        use HasChronicle;
+
+        protected array $chronicleRedact = ['name'];
+
+        protected function chronicleRedact(): array
+        {
+            return ['password'];
+        }
+
+        protected function chronicleActionPrefix(): string
+        {
+            return 'fake_chronicle_model';
+        }
+    };
+    $model->setTable('fake_chronicle_models');
+    $model->fill(['name' => 'Alice', 'password' => 'secret'])->save();
+    Entry::query()->delete();
+
+    $model->update(['name' => 'Bob', 'password' => 'newsecret']);
+
+    $entry = Entry::first();
+
+    expect($entry->diff['name']['new'])->toBe('Bob')
+        ->and($entry->diff['password']['new'])->toBe('[redacted]');
+});
+
+it('throws when a chronicle property is not an array of strings', function (mixed $value) {
+    $model = new class extends FakeModel
+    {
+        use HasChronicle;
+
+        public mixed $chronicleEvents = [];
+
+        protected function chronicleActionPrefix(): string
+        {
+            return 'fake_chronicle_model';
+        }
+    };
+    $model->chronicleEvents = $value;
+    $model->setTable('fake_chronicle_models');
+
+    expect(fn () => $model->fill(['name' => 'Alice'])->save())
+        ->toThrow(LogicException::class, 'chronicleEvents must be an array of strings');
+})->with([
+    'a string' => ['created'],
+    'an array holding a non-string' => [['created', 1]],
+]);
 
 it('uses the authenticated user as actor when one is logged in', function () {
     Schema::create('fake_users', function (Blueprint $table) {
@@ -322,6 +419,30 @@ it('does not record events excluded from chronicleEvents when declared as an arr
     Entry::query()->delete(); // clear created entry
 
     $model->update(['name' => 'Bob']); // updated is not in $chronicleEvents
+
+    expect(Entry::count())->toBe(0);
+});
+
+it('does not record events excluded from chronicleEvents when defined in overridden method on the model', function () {
+    $model = new class extends FakeModel
+    {
+        use HasChronicle;
+
+        protected function chronicleEvents(): array
+        {
+            return ['created', 'deleted'];
+        }
+
+        protected function chronicleActionPrefix(): string
+        {
+            return 'fake_chronicle_model';
+        }
+    };
+    $model->setTable('fake_chronicle_models');
+    $model->fill(['name' => 'Alice'])->save();
+    Entry::query()->delete(); // clear created entry
+
+    $model->update(['name' => 'Bob']); // updated is not returned by chronicleEvents()
 
     expect(Entry::count())->toBe(0);
 });
