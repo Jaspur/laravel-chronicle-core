@@ -10,6 +10,10 @@ breaking changes between any two versions - see upgrade notes per version.
 
 ## [Unreleased]
 
+---
+
+## [1.15.0] - 2026-10-11
+
 ### Added
 
 - `HasChronicle` settings can now be defined by overriding `chronicleEvents()`, `chronicleIgnore()` and `chronicleRedact()` on the model, as an alternative to the `$chronicleEvents`, `$chronicleIgnore` and `$chronicleRedact` properties. A method override takes precedence over a property.
