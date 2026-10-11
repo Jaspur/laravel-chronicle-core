@@ -88,6 +88,9 @@ trait HasChronicle
     }
 
     /**
+     * The full ignore list: the timestamp columns plus chronicleIgnore().
+     * Override chronicleIgnore() to add fields; override this only to change the defaults.
+     *
      * @return list<string>
      */
     protected function chronicleIgnoredFields(): array
@@ -99,7 +102,7 @@ trait HasChronicle
     }
 
     /**
-     * Override to define ignored fields
+     * Override to define ignored fields, or declare a $chronicleIgnore property
      *
      * @return list<string>
      */
@@ -109,7 +112,7 @@ trait HasChronicle
     }
 
     /**
-     * Override to define redacted fields
+     * Override to define redacted fields, or declare a $chronicleRedact property
      *
      * @return list<string>
      */
@@ -119,7 +122,7 @@ trait HasChronicle
     }
 
     /**
-     * Override to define triggering model events
+     * Override to define triggering model events, or declare a $chronicleEvents property
      *
      * @return list<string>
      */

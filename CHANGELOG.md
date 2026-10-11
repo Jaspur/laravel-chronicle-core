@@ -10,6 +10,19 @@ breaking changes between any two versions - see upgrade notes per version.
 
 ## [Unreleased]
 
+### Added
+
+- `HasChronicle` settings can now be defined by overriding `chronicleEvents()`, `chronicleIgnore()` and `chronicleRedact()` on the model, as an alternative to the `$chronicleEvents`, `$chronicleIgnore` and `$chronicleRedact` properties. A method override takes precedence over a property.
+
+### Changed
+
+- `HasChronicle` no longer declares `$chronicleEvents`, `$chronicleIgnore` and `$chronicleRedact` itself. It reads them from the model when the model declares them and uses the defaults otherwise, which brings back the `property_exists()` lookup removed in 1.9.1. A declared property that is not an array of strings now throws a `LogicException` when the model is saved.
+  **Upgrade note:** code that assigns one of these properties at runtime without declaring it on the model (for example `$this->chronicleRedact = [...]` in a constructor) must now declare the property, or override the matching method. Undeclared, the assignment is treated as an Eloquent attribute and the save fails.
+
+### Fixed
+
+- Declaring `$chronicleEvents`, `$chronicleIgnore` or `$chronicleRedact` on a model that uses `HasChronicle` directly no longer fails with "define the same property in the composition ... the definition differs and is considered incompatible". This was the documented way to configure the trait and had been broken since 1.9.1 for `$chronicleEvents` and `$chronicleIgnore`, and since 1.11.0 for `$chronicleRedact`; only declaring them on a subclass of a model using the trait worked. ([#238](https://github.com/laravel-chronicle/core/issues/238))
+
 ---
 
 ## [1.14.0] - 2026-10-09
