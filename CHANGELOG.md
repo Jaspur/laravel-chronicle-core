@@ -10,6 +10,10 @@ breaking changes between any two versions - see upgrade notes per version.
 
 ## [Unreleased]
 
+### CI
+
+- The `add_to_project` workflow now declares `permissions: {}`. It runs on `pull_request_target` and authenticates with its own project board token, so its `GITHUB_TOKEN` no longer carries the repository's default permissions. Resolves the `actions/missing-workflow-permissions` code scanning alert.
+
 ---
 
 ## [1.15.0] - 2026-10-11
