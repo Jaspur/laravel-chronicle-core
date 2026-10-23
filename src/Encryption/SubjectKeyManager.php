@@ -23,6 +23,14 @@ final class SubjectKeyManager
      */
     protected array $cache = [];
 
+    /**
+     * Bumped per subject on destroy, so a DEK whose caching is still waiting
+     * for its transaction to commit is not cached after the subject's erasure.
+     *
+     * @var array<string, int>
+     */
+    protected array $generations = [];
+
     public function __construct(
         protected readonly KeyEncryptionManager $kek,
     ) {
@@ -55,7 +63,7 @@ final class SubjectKeyManager
                 throw EncryptionException::subjectErased($subjectType, $subjectId);
             }
 
-            return $this->cache[$cacheKey] = $this->kek->provider()->unwrap($wrapped);
+            return $this->remember($cacheKey, $this->kek->provider()->unwrap($wrapped));
         }
 
         $provider = $this->kek->provider();
@@ -70,7 +78,7 @@ final class SubjectKeyManager
             'created_at' => now(),
         ]);
 
-        return $this->cache[$cacheKey] = $dek;
+        return $this->remember($cacheKey, $dek);
     }
 
     /**
@@ -100,7 +108,7 @@ final class SubjectKeyManager
         }
 
         return SubjectKeyState::active(
-            $this->cache[$cacheKey] = $this->kek->provider()->unwrap($wrapped),
+            $this->remember($cacheKey, $this->kek->provider()->unwrap($wrapped)),
         );
     }
 
@@ -111,7 +119,10 @@ final class SubjectKeyManager
      */
     public function destroy(string $subjectType, string $subjectId): void
     {
-        unset($this->cache[$this->cacheKey($subjectType, $subjectId)]);
+        $cacheKey = $this->cacheKey($subjectType, $subjectId);
+
+        unset($this->cache[$cacheKey]);
+        $this->generations[$cacheKey] = ($this->generations[$cacheKey] ?? 0) + 1;
 
         $row = $this->find($subjectType, $subjectId);
 
@@ -137,6 +148,27 @@ final class SubjectKeyManager
         $row->status = 'erased';
         $row->erased_at = now();
         $row->save();
+    }
+
+    /**
+     * Cache a DEK once the transaction it was read or created in commits.
+     *
+     * Inside a transaction the key row may be rolled back with it; a DEK
+     * cached before that would outlive its row, and entries encrypted with
+     * it later could never be decrypted. Outside a transaction it is cached
+     * straight away. A subject destroyed before the commit is not cached.
+     */
+    protected function remember(string $cacheKey, string $dek): string
+    {
+        $generation = $this->generations[$cacheKey] ?? 0;
+
+        (new SubjectKey)->getConnection()->afterCommit(function () use ($cacheKey, $dek, $generation) {
+            if (($this->generations[$cacheKey] ?? 0) === $generation) {
+                $this->cache[$cacheKey] = $dek;
+            }
+        });
+
+        return $dek;
     }
 
     protected function find(string $subjectType, string $subjectId): ?SubjectKey

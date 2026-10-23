@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use Chronicle\Encryption\CipherEnvelope;
+use Chronicle\Encryption\SubjectKey;
+use Chronicle\Encryption\SubjectKeyManager;
 use Chronicle\Entry\Entry;
 use Chronicle\Facades\Chronicle;
 use Chronicle\Verification\EntryVerifier;
 use Chronicle\Verification\IntegrityVerifier;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->useEloquentDriver();
@@ -58,6 +61,32 @@ it('skips empty/null fields so they remain cleartext', function () {
     expect(CipherEnvelope::isEnvelope($entry->metadata))->toBeTrue()
         ->and(CipherEnvelope::isEnvelope($entry->context ?? []))->toBeFalse()
         ->and($entry->diff)->toBeNull();
+});
+
+it('stores the subject key after a rolled-back write for the same subject', function () {
+    try {
+        DB::transaction(function () {
+            Chronicle::record()
+                ->actor(ref('a'))->action('order.placed')->subject(ref('s'))
+                ->metadata(['email' => 'first@example.com'])
+                ->commit();
+
+            throw new RuntimeException('roll back');
+        });
+    } catch (RuntimeException) {
+        //
+    }
+
+    Chronicle::record()
+        ->actor(ref('a'))->action('order.placed')->subject(ref('s'))
+        ->metadata(['email' => 'client@example.com'])
+        ->commit();
+
+    // A fresh process has only the stored key, not this one's DEK cache.
+    app()->forgetInstance(SubjectKeyManager::class);
+
+    expect(SubjectKey::query()->count())->toBe(1)
+        ->and(Entry::query()->sole()->decryptedMetadata())->toBe(['email' => 'client@example.com']);
 });
 
 it('is a no-op when encryption is disabled (identical to 1.11)', function () {
