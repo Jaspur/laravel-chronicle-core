@@ -7,6 +7,7 @@ use Chronicle\Encryption\LocalKeyEncryptionProvider;
 use Chronicle\Encryption\SubjectKey;
 use Chronicle\Encryption\SubjectKeyManager;
 use Chronicle\Exceptions\EncryptionException;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     config()->set('chronicle.encryption.kek', [
@@ -48,6 +49,56 @@ it('unwraps a persisted DEK in a fresh manager (no shared cache)', function () {
 
     expect(strlen($fresh->getOrCreate('App\\Models\\User', '1')))
         ->toBe(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+});
+
+it('persists the DEK again after the transaction that created it rolled back', function () {
+    $manager = app(SubjectKeyManager::class);
+
+    try {
+        DB::transaction(function () use ($manager) {
+            $manager->getOrCreate('App\\Models\\User', '1');
+
+            throw new RuntimeException('roll back');
+        });
+    } catch (RuntimeException) {
+        //
+    }
+
+    $dek = $manager->getOrCreate('App\\Models\\User', '1');
+
+    $fresh = new SubjectKeyManager(app(KeyEncryptionManager::class));
+
+    expect(SubjectKey::query()->where('subject_id', '1')->count())->toBe(1)
+        ->and($fresh->getOrCreate('App\\Models\\User', '1'))->toBe($dek);
+});
+
+it('does not report a rolled-back DEK as active', function () {
+    $manager = app(SubjectKeyManager::class);
+
+    try {
+        DB::transaction(function () use ($manager) {
+            $manager->getOrCreate('App\\Models\\User', '1');
+
+            throw new RuntimeException('roll back');
+        });
+    } catch (RuntimeException) {
+        //
+    }
+
+    expect($manager->stateFor('App\\Models\\User', '1')->dek)->toBeNull();
+});
+
+it('keeps a subject erased in the same transaction erased once it commits', function () {
+    $manager = app(SubjectKeyManager::class);
+
+    DB::transaction(function () use ($manager) {
+        $manager->getOrCreate('App\\Models\\User', '1');
+        $manager->destroy('App\\Models\\User', '1');
+    });
+
+    expect($manager->stateFor('App\\Models\\User', '1')->erased)->toBeTrue()
+        ->and(fn () => $manager->getOrCreate('App\\Models\\User', '1'))
+        ->toThrow(EncryptionException::class);
 });
 
 it('destroys the DEK: nulls wrapped_dek, tombstones the row, purges cache', function () {
