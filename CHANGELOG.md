@@ -17,6 +17,7 @@ breaking changes between any two versions - see upgrade notes per version.
 ### CI
 
 - The `add_to_project` workflow now declares `permissions: {}`. It runs on `pull_request_target` and authenticates with its own project board token, so its `GITHUB_TOKEN` no longer carries the repository's default permissions. Resolves the `actions/missing-workflow-permissions` code scanning alert.
+- Tests and PHPStan now also run on pull requests, with the same path filters as on push. Until now they ran only on `push`, so pull requests from forks got no CI at all. Code style fixing stays on push: it commits back to the branch, which a fork's read-only token cannot do.
 
 ---
 
