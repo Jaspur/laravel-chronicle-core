@@ -16,6 +16,7 @@ cryptographic audit log
 ![Packagist Downloads](https://img.shields.io/packagist/dt/laravel-chronicle/core)
 [![Tests](https://github.com/laravel-chronicle/core/actions/workflows/run-tests.yml/badge.svg)](https://github.com/laravel-chronicle/core/actions)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/ntoufoudis)
 [![All Contributors](https://img.shields.io/github/all-contributors/laravel-chronicle/core?color=ee8449&style=flat-square)](#contributors)
 
 **Chronicle** is a cryptographically verifiable audit ledger for Laravel.
@@ -572,6 +573,24 @@ Planned for upcoming releases:
 
 ---
 
+## Sponsors
+
+Chronicle is free and MIT licensed. If your team relies on it for an audit trail, you can support its maintenance through [GitHub Sponsors](https://github.com/sponsors/ntoufoudis). Sponsorship pays for support for new Laravel and PHP releases, security fixes, and the documentation.
+
+### Company sponsors
+
+<!-- $100/month tier: logo, linked to the sponsor's site -->
+
+Your logo here. [Become a company sponsor](https://github.com/sponsors/ntoufoudis).
+
+### Backers
+
+<!-- $25/month tier: name or handle, linked to their GitHub profile -->
+
+Your name here. [Become a backer](https://github.com/sponsors/ntoufoudis).
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please read: [CONTRIBUTING](CONTRIBUTING.md) before submitting pull requests.
@@ -620,4 +639,4 @@ Chronicle is open-source software licensed under the [MIT](LICENSE.md) license.
 
 Chronicle was created to provide **verifiable audit logging for Laravel applications**.
 
-If you find Chronicle useful, consider starring the repository ⭐
+If you find Chronicle useful, consider starring the repository ⭐ or [sponsoring its maintenance](https://github.com/sponsors/ntoufoudis).
