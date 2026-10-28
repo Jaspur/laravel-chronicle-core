@@ -80,5 +80,11 @@
             "@test:types",
             "@test:parallel"
         ]
-    }
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/ntoufoudis"
+        }
+    ]
 }
